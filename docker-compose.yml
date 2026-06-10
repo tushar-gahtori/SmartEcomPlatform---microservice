@@ -1,0 +1,204 @@
+services:
+
+  # ── INFRASTRUCTURE ──────────────────────────────────────────
+
+  mysql-db:
+    image: mysql:8.0
+    container_name: smart-ecommerce-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis-cache:
+    image: redis:7.2
+    container_name: smart-ecommerce-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: smart-ecommerce-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: smart-ecommerce-kafka
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # ── MONITORING ───────────────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: smart-ecommerce-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: smart-ecommerce-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ── MICROSERVICES ────────────────────────────────────────────
+
+  eureka-server:
+    build: ./eureka-server
+    container_name: smart-ecommerce-eureka
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: smart-ecommerce-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    environment:
+      - EUREKA_URI=http://eureka-server:8761/eureka/
+      - JWT_SECRET=${JWT_SECRET}
+    restart: on-failure
+
+  user-service:
+    build: ./user-service
+    container_name: smart-ecommerce-user
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      - DB_URL=jdbc:mysql://mysql-db:3306/users_db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS}
+      - EUREKA_URI=http://eureka-server:8761/eureka/
+    restart: on-failure
+
+  product-service:
+    build: ./product-service
+    container_name: smart-ecommerce-product
+    ports:
+      - "8082:8082"
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      - DB_URL=jdbc:mysql://mysql-db:3306/products_db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis-cache
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+      - EUREKA_URI=http://eureka-server:8761/eureka/
+    restart: on-failure
+
+  order-service:
+    build: ./order-service
+    container_name: smart-ecommerce-order
+    ports:
+      - "8083:8083"
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      - DB_URL=jdbc:mysql://mysql-db:3306/orders_db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - JWT_SECRET=${JWT_SECRET}
+      - EUREKA_URI=http://eureka-server:8761/eureka/
+    restart: on-failure
+
+  notification-service:
+    build: ./notification-service
+    container_name: smart-ecommerce-notification
+    ports:
+      - "8084:8084"
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      - DB_URL=jdbc:mysql://mysql-db:3306/notifications_db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - REDIS_HOST=redis-cache
+      - REDIS_PORT=6379
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - EUREKA_URI=http://eureka-server:8761/eureka/
+    restart: on-failure
+
+volumes:
+  mysql_data:
+  grafana_data:

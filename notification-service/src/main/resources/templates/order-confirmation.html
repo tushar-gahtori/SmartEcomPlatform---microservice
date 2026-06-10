@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Order Confirmed</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: #f4f4f5;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header {
+            background-color: #16a34a;
+            color: white;
+            padding: 32px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .header p {
+            margin: 8px 0 0;
+            opacity: 0.85;
+        }
+        .body {
+            padding: 32px;
+        }
+        .order-box {
+            background-color: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 24px 0;
+        }
+        .order-box p {
+            margin: 6px 0;
+            font-size: 15px;
+        }
+        .order-box .label {
+            color: #6b7280;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .order-box .value {
+            font-weight: 600;
+            color: #111827;
+            font-size: 16px;
+        }
+        .total {
+            font-size: 20px;
+            font-weight: 700;
+            color: #16a34a;
+        }
+        .footer {
+            background-color: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            padding: 20px 32px;
+            text-align: center;
+            font-size: 13px;
+            color: #9ca3af;
+        }
+        .btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 28px;
+            background-color: #16a34a;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <h1>&#10003; Order Confirmed!</h1>
+        <p>Thank you for your purchase.</p>
+    </div>
+
+    <div class="body">
+        <p>Hi <strong th:text="${userName}">Customer</strong>,</p>
+        <p>
+            We have received your order and it is being processed.
+            Here is a summary:
+        </p>
+
+        <div class="order-box">
+            <p class="label">Order ID</p>
+            <p class="value" th:text="'#' + ${orderId}">Order #123</p>
+
+            <br/>
+
+            <p class="label">Status</p>
+            <p class="value" th:text="${status}">CONFIRMED</p>
+
+            <br/>
+
+            <p class="label">Order Total</p>
+            <p class="value total"
+               th:text="'₹' + ${#numbers.formatDecimal(totalAmount, 1, 2)}">
+                ₹0.00
+            </p>
+
+            <br/>
+
+            <p class="label">Placed On</p>
+            <p class="value"
+               th:text="${#temporals.format(occurredAt, 'dd MMM yyyy, hh:mm a')}">
+                01 Jan 2025
+            </p>
+        </div>
+
+        <p>
+            We will notify you again when your order is shipped.
+            If you have any questions, reply to this email.
+        </p>
+
+        <div style="text-align: center;">
+            <a href="http://localhost:3000/my-orders" class="btn">
+                View My Orders
+            </a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>SmartEcommerce Platform &mdash; Automated Notification</p>
+        <p>Please do not reply directly to this email.</p>
+    </div>
+
+</div>
+</body>
+</html>

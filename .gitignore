@@ -1,0 +1,34 @@
+# Environment — NEVER commit
+.env
+*.env
+.env.*
+
+# Maven build output — never commit target folders
+target/
+*/target/
+**/target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.idea
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker volumes data
+mysql_data/
+grafana_data/
+
+# Logs
+*.log
+logs/
+
+# Spring Boot
+spring-shell.log
