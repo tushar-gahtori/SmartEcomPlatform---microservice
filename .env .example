@@ -1,8 +1,6 @@
 # ================================================
 # SmartEcommerce Platform — Environment Variables
 # ================================================
-# Copy this file to .env and fill in your values
-# NEVER commit .env to Git
 
 # JWT Configuration
 JWT_SECRET=5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
@@ -23,7 +21,6 @@ KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 # 1. Enable 2FA on your Google account
 # 2. Go to Google Account → Security → App passwords
 # 3. Generate an app password for "Mail"
-# 4. Paste it here (NOT your real Gmail password)
 MAIL_USERNAME=your-gmail@gmail.com
 MAIL_PASSWORD=your-16-char-app-password
 
