@@ -1,111 +1,107 @@
-# SmartEcommerce Platform — Microservices Architecture
+# 🛒 SmartEcommerce Platform — Microservices Architecture
 
 A production-grade e-commerce backend built with Java Spring Boot microservices.
 
-## Architecture
+![Java](https://img.shields.io/badge/Java-21-blue.svg)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.1-brightgreen.svg)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)
+![Kafka](https://img.shields.io/badge/Kafka-Event%20Driven-black.svg)
+![Redis](https://img.shields.io/badge/Redis-Caching-red.svg)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-blue.svg)
 
-API Gateway (8080) → Eureka Server (8761)
-↓
-┌────────────────────────────────────────┐
-│  User Service  │ Product Service       │
-│  (8081)        │ (8082) + Redis Cache  │
-├────────────────┼───────────────────────┤
-│  Order Service │ Notification Service  │
-│  (8083) +Feign │ (8084) Kafka Consumer │
-└────────────────┴───────────────────────┘
-↓
-Kafka → MySQL → Prometheus → Grafana
+## 🏗 Architecture & Flow
 
-## Tech Stack
+The architecture consists of an API Gateway on port 8080 routing to a Eureka Server on port 8761. The core microservices include the User Service (8081), Product Service with Redis Cache (8082), Order Service with Feign (8083), and Notification Service functioning as a Kafka Consumer (8084). Downstream infrastructure includes Kafka, MySQL, Prometheus, and Grafana.
+
+## 🛠 Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Language | Java 21 |
-| Framework | Spring Boot 3.4.1 |
-| API Gateway | Spring Cloud Gateway |
-| Service Discovery | Netflix Eureka |
-| Inter-service Comm | OpenFeign + Kafka |
-| Security | Spring Security + JWT |
-| Database | MySQL 8.0 (per-service schema) |
-| Cache | Redis 7.2 |
-| Messaging | Apache Kafka |
-| Monitoring | Prometheus + Grafana |
-| Containerization | Docker + Docker Compose |
-| DB Migration | Flyway |
+| :--- | :--- |
+| **Language** | Java 21 |
+| **Framework** | Spring Boot 3.4.1 |
+| **API Gateway** | Spring Cloud Gateway |
+| **Service Discovery** | Netflix Eureka |
+| **Inter-service Comm** | OpenFeign + Kafka |
+| **Security** | Spring Security + JWT |
+| **Database** | MySQL 8.0 (per-service schema) |
+| **Cache** | Redis 7.2 |
+| **Messaging** | Apache Kafka |
+| **Monitoring** | Prometheus + Grafana |
+| **Containerization**| Docker + Docker Compose |
+| **DB Migration** | Flyway |
 
-## Microservices
+## 🧩 Microservices Breakdown
 
 | Service | Port | Responsibility |
-|---------|------|----------------|
-| api-gateway | 8080 | JWT auth, routing, CORS |
-| eureka-server | 8761 | Service registry |
-| user-service | 8081 | Auth, JWT generation |
-| product-service | 8082 | Catalogue, stock, Redis cache |
-| order-service | 8083 | Cart, orders, Feign, Kafka |
-| notification-service | 8084 | Kafka consumer, email |
+| :--- | :--- | :--- |
+| `api-gateway` | 8080 | JWT auth, routing, CORS |
+| `eureka-server` | 8761 | Service registry |
+| `user-service` | 8081 | Auth, JWT generation |
+| `product-service` | 8082 | Catalogue, stock, Redis cache |
+| `order-service` | 8083 | Cart, orders, Feign, Kafka |
+| `notification-service` | 8084 | Kafka consumer, email |
 
-## Key Design Patterns
+## 📐 Key Design Patterns
 
-- **API Gateway Pattern** — single entry point, JWT validation
-- **Service Registry** — Eureka for dynamic service discovery
-- **Circuit Breaker** — Resilience4J on Feign clients
-- **Saga Pattern** — stock rollback on order failure
-- **Event-Driven** — Kafka for async order notifications
-- **Idempotency** — Redis + DB for duplicate event prevention
-- **Cache-Aside** — Redis caching for product catalogue
+* **API Gateway Pattern**: Provides a single entry point and performs JWT validation.
+* **Service Registry**: Uses Eureka for dynamic service discovery.
+* **Circuit Breaker**: Implements Resilience4J on Feign clients.
+* **Saga Pattern**: Ensures stock rollback on order failure.
+* **Event-Driven**: Uses Kafka for asynchronous order notifications.
+* **Idempotency**: Utilizes Redis and the database for duplicate event prevention.
+* **Cache-Aside**: Applies Redis caching for the product catalogue.
 
-## Running Locally
+## 🤔 Architecture Decisions
+
+* **Why separate DBs per service?** Each service owns its data, meaning the Order service calls the Product Service via Feign instead of directly touching the products table, enforcing bounded context.
+* **Why Kafka for notifications?** Decouples order placement from email sending so that if the email server is down, the order still completes and the Kafka event is retried automatically.
+* **Why Redis for product cache?** Significantly reduces database load since product reads are far more frequent than writes, with the cache being evicted on any product update.
+
+## 🚀 Running Locally
 
 ### Prerequisites
-- Java 21
-- Maven 3.9+
-- Docker Desktop
+* Java 21
+* Maven 3.9+
+* Docker Desktop
 
 ### Steps
 
-```bash
-# 1. Build common library
-cd common-lib && mvn clean install -DskipTests
+1.  **Build the common library**:
+    ```bash
+    cd common-lib && mvn clean install -DskipTests
+    ```
+2.  **Build all services**:
+    ```bash
+    for service in api-gateway user-service product-service order-service notification-service eureka-server; do
+      cd ../$service && mvn clean package -DskipTests
+    done
+    ```
+3.  **Start the infrastructure**:
+    ```bash
+    docker-compose up mysql-db redis-cache zookeeper kafka prometheus grafana
+    ```
+4.  **Start the services** (in a new terminal, wait 60s after step 3):
+    ```bash
+    docker-compose up eureka-server api-gateway user-service product-service order-service notification-service
+    ```
 
-# 2. Build all services
-for service in api-gateway user-service product-service order-service notification-service eureka-server; do
-  cd ../$service && mvn clean package -DskipTests
-done
-
-# 3. Start infrastructure
-docker-compose up mysql-db redis-cache zookeeper kafka prometheus grafana
-
-# 4. Start services (new terminal, wait 60s after step 3)
-docker-compose up eureka-server api-gateway user-service product-service order-service notification-service
-```
-
-### API Testing
+## 🧪 API Testing
 
 | Endpoint | Method | Description |
-|----------|--------|-------------|
-| /api/users/register | POST | Register new user |
-| /api/auth/login | POST | Login, get JWT token |
-| /api/products | GET | Get all products |
-| /api/products | POST | Create product (ADMIN) |
-| /api/cart/add | POST | Add item to cart |
-| /api/orders/checkout | POST | Checkout cart |
-| /api/orders/my-orders | GET | View my orders |
+| :--- | :--- | :--- |
+| `/api/users/register` | POST | Register new user |
+| `/api/auth/login` | POST | Login, get JWT token |
+| `/api/products` | GET | Get all products |
+| `/api/products` | POST | Create product (ADMIN) |
+| `/api/cart/add` | POST | Add item to cart |
+| `/api/orders/checkout`| POST | Checkout cart |
+| `/api/orders/my-orders`| GET | View my orders |
 
-### Monitoring
-- Eureka Dashboard → http://localhost:8761
-- Prometheus → http://localhost:9090
-- Grafana → http://localhost:3001 (admin/admin)
+## 📈 Monitoring
 
-## Architecture Decisions
+* **Eureka Dashboard**: http://localhost:8761
+* **Prometheus**: http://localhost:9090
+* **Grafana**: http://localhost:3001 (Credentials: `admin`/`admin`)
 
-**Why separate DBs per service?**
-Each service owns its data. Order service never touches the products table directly — it calls Product Service via Feign. This enforces bounded context.
-
-**Why Kafka for notifications?**
-Order placement and email sending are decoupled. If the email server is down, the order still completes. The Kafka event is retried automatically.
-
-**Why Redis for product cache?**
-Product reads are far more frequent than writes. Caching reduces DB load significantly. Cache is evicted on any product update.
-
-## Author
-Tushar Gahtori
+---
+**Author**: Tushar Gahtori
